@@ -11,20 +11,20 @@ output:
 knitr::opts_chunk$set(echo = TRUE, cache = TRUE)
 ```
 
-Este documento contiene las notas y código necesario para analizar un conjunto de datos scRNAseq de meduloblastoma: [Neoplastic and immune single-cell transcriptomics define subgroup-specific intra-tumoral heterogeneity of childhood medulloblastoma ](https://pubmed.ncbi.nlm.nih.gov/34077540/). Los datos se encuentran disponibles en el repositorio [GEO](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE155446), el cual contiene las matrices de conteo y los etadatos del analisis. 
+Este documento contiene las notas y código necesario para analizar un conjunto de datos scRNAseq de meduloblastoma: [Neoplastic and immune single-cell transcriptomics define subgroup-specific intra-tumoral heterogeneity of childhood medulloblastoma](https://pubmed.ncbi.nlm.nih.gov/34077540/). Los datos se encuentran disponibles en el repositorio [GEO](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE155446), el cual contiene las matrices de conteo y los metadatos del análisis.
 
-Una vez con los datos descargados podemos empezar a trabajar. Lo primero es establecer nuestro directorio de trabajo, en él deben encontrarse los archivos necesarios para el análisis: 
+Una vez con los datos descargados podemos empezar a trabajar. Lo primero es establecer nuestro directorio de trabajo, en él deben encontrarse los archivos necesarios para el análisis:
 
-  + GSE155446_human_cell_metadata.csv: Matriz de conteos (transcritos * celula )
-  + metadata.csv : Datos adicionales a la muestra
-  
+-   GSE155446_human_cell_metadata.csv: Matriz de conteos (transcritos \* celula )
+-   metadata.csv : Datos adicionales a la muestra
+
 ```{r}
 # Establecer directorio de trabajo
 setwd("D:/marval_windows/JR_MARVAL/maestria_clases/sc_RNAseq/mb_scrnaseq")
 list.files()
 ```
 
-El siguiente paso es instalar las librerías necesarias para el análisis. La librería principal es [Seurat](https://satijalab.org/seurat/articles/pbmc3k_tutorial#standard-pre-processing-workflow). Mucho de este código esta basado en su documentación. 
+El siguiente paso es instalar las librerías necesarias para el análisis. La librería principal es [Seurat](https://satijalab.org/seurat/articles/pbmc3k_tutorial#standard-pre-processing-workflow). Mucho de este código esta basado en su documentación.
 
 ```{r}
 # Instalar liberias
@@ -34,9 +34,11 @@ library(Seurat)
 library(dplyr)
 #install.packages("ggplot2")
 library(ggplot2)
+#install.packages("clustree")
+library(clustree)
 ```
 
-Ahora cargamos los datos necesarios para el análisis: 
+Ahora cargamos los datos necesarios para el análisis:
 
 ```{r}
 # Cargar matriz de conteo
@@ -49,13 +51,13 @@ metadata <- read.csv("GSE155446_human_cell_metadata.csv", row.names = 1)
 dim(metadata)
 ```
 
-Verifica que las celulas en counts esten presentes en el metadata. Debería ser TRUE, si es FALSE, entonces algunas céulas en counts no tienen infomarción en metadata: 
+Verifica que las celulas en counts esten presentes en el metadata. Debería ser TRUE, si es FALSE, entonces algunas céulas en counts no tienen infomarción en metadata:
 
 ```{r}
 all(colnames(counts) %in% rownames(metadata))  
 ```
 
-El siguiente paso es crear el objeto Seurat, el cual es indispensable para el manejo de los datos: 
+El siguiente paso es crear el objeto Seurat, el cual es indispensable para el manejo de los datos:
 
 ```{r}
 # Crear el objeto Seurat
@@ -70,11 +72,11 @@ seurat_obj
 
 **Nuestros datos constan de 26040 *features* (genes) y 39946 *samples* (células)**. Es necesario resaltar que cada transcrito representa una dimensión.
 
----
+------------------------------------------------------------------------
 
 #### **Control de Calidad:**
 
-Aquí se pretende eliminar ruido técnico de los datos, evaluando el número de genes detectados por céula, pocos genes podrína representar drops vacíos y muchos genes podrían ser resultado de la lectura de más de una célula. También se considera  el número total de moléculas detectadas dentro de una célula (se correlaciona fuertemente con genes únicos). Finalmente, la presencia de genes mirocondriales es otro parametro de la viabilidad de los datos, estos genes indican muerte y estrés celular, por ello se busca eliminarlos.
+Aquí se pretende eliminar ruido técnico de los datos, evaluando el número de genes detectados por céula, pocos genes podrían representar drops vacíos y muchos genes podrían ser resultado de la lectura de más de una célula. También se considera el número total de moléculas detectadas dentro de una célula (se correlaciona fuertemente con genes únicos). Finalmente, la presencia de genes mitocondriales es otro parámetro sobre la viabilidad de los datos, estos genes indican muerte y estrés celular, por ello se busca eliminarlos.
 
 Veamos los datos antes de filtrarlos:
 
@@ -109,6 +111,7 @@ ggplot(as.data.frame(cell_counts), aes(x = Var1, y = Freq)) +
        title = "Distribución de Células por Muestra") +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) 
 ```
+
 Tambien se puede mostrar un solo grafico de los parametros de clidad:
 
 ```{r}
@@ -117,7 +120,8 @@ seurat_obj$All <- "All_Cells"
 VlnPlot(seurat_obj, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), 
         group.by = "All", ncol = 3)
 ```
-Ahora veamos lso valores de los parametros de calidad previo al filtrado de los datos:
+
+Ahora veamos los valores de los parametros de calidad previo al filtrado de los datos:
 
 ```{r}
 # Mostrar estadísticos de caracteristicas para el QC
@@ -128,9 +132,9 @@ summary(seurat_obj$percent.mt)    # Porcentaje de genes mitocondriales
 
 Ahora veamos como cambian los datos aplicando filtros. Hemos filtrado de la siguiente manera:
 
-  + Feature RNA > 300
-  + Feature RNA < 6000
-  + percen.mt < 15
+-   Feature RNA \> 300
+-   Feature RNA \< 6000
+-   percen.mt \< 15
 
 ```{r}
 # Aplicar filtros: definir umbrales
@@ -146,7 +150,7 @@ seurat_obj_filt
 ```
 
 **Nuestros datos filtrados constan de 26040 *features* (genes) y 20715 *samples* (células)**.
- 
+
 ```{r}
 # Mostrar estadísticos de caracteristicas para el QC
 summary(seurat_obj_filt$nFeature_RNA)  # Genes detectados por célula
@@ -169,6 +173,7 @@ VlnPlot(seurat_obj_filt, features = c("nFeature_RNA",
 ```
 
 Los filtros aplicados fueron seleccionados para dar un valor de correlacion entre nFeatures & nCounts minimo de .9
+
 ```{r}
 # Correlación entre Count_RNA & Feature_RNA
 cor_value <- cor(seurat_obj_filt$nCount_RNA, seurat_obj_filt$nFeature_RNA)
@@ -180,32 +185,37 @@ print(cor_value)
 FeatureScatter(seurat_obj_filt, feature1 = "nCount_RNA", 
                feature2 = "nFeature_RNA")
 ```
+
 ```{r}
 FeatureScatter(seurat_obj_filt, feature1 = "nCount_RNA", 
                feature2 = "nFeature_RNA", group.by = "All")
 ```
+
 ```{r}
 # Relación entre genes detectados y porcentaje mitocondrial
 FeatureScatter(seurat_obj_filt, feature1 = "nCount_RNA", 
                feature2 = "percent.mt")
 ```
+
 ```{r}
 # Relación entre genes detectados y porcentaje mitocondrial
 FeatureScatter(seurat_obj_filt, feature1 = "nCount_RNA", 
                feature2 = "percent.mt", group.by = "All")
 ```
 
----
+------------------------------------------------------------------------
 
 #### **Normalización:**
 
-En este paso se pretende remover ruido técnico del análisis para tratar de garantizar que las conclusiones obtenidas son biológicamente relevantes y no se deben a rudio técnico. El método utilizado por Seurat, asume que cada célula contiene el mismo número de moléculas de RNA. 
+En este paso se pretende remover ruido técnico del análisis para tratar de garantizar que las conclusiones obtenidas son biológicamente relevantes y no se deben a rudio técnico. El método utilizado por Seurat, asume que cada célula contiene el mismo número de moléculas de RNA.
 
 ```{r}
 seurat_obj_filt <- NormalizeData(seurat_obj_filt,
                                normalization.method = "LogNormalize", 
                                scale.factor = 10000)
+```
 
+```{r}
 # Cuentas originales vs. normalizadas
 # Cuentas originales log-transformadas
 seurat_obj_filt$log_counts <- log1p(seurat_obj_filt$nCount_RNA)
@@ -216,6 +226,7 @@ VlnPlot(seurat_obj_filt, features = c("log_counts", "nCount_RNA"),
         pt.size = 0.1, 
         split.by = "orig.ident")
 ```
+
 ```{r}
 # Visualizar un solo violin
 seurat_obj_filt$All <- "All_cells"
@@ -233,6 +244,7 @@ VlnPlot(seurat_obj_filt, features =
           c("nFeature_RNA", "nCount_RNA", "log_counts"), 
         ncol = 3, group.by = "All", pt.size = 0.1)
 ```
+
 ```{r}
 FeatureScatter(seurat_obj_filt, feature1 = "nCount_RNA", 
                feature2 = "log_counts")
@@ -242,8 +254,12 @@ FeatureScatter(seurat_obj_filt, feature1 = "nCount_RNA",
 FeatureScatter(seurat_obj_filt, feature1 = "nCount_RNA", 
                feature2 = "log_counts", group.by = "All")
 ```
+```{r}
+FeatureScatter(seurat_obj_filt, feature1 = "nCount_RNA", 
+               feature2 = "nFeature_RNA", group.by = "All")
+```
 
----
+------------------------------------------------------------------------
 
 #### **Identificación de genes con alta variabilidad:**
 
@@ -266,7 +282,7 @@ LabelPoints(plot = VariableFeaturePlot(seurat_obj_filt), points = top,
             max.overlaps = 20, xnudge = 0.01, ynudge = 0.01)
 ```
 
----
+------------------------------------------------------------------------
 
 #### **Escalamiento:**
 
@@ -279,11 +295,11 @@ DoHeatmap(seurat_obj_filt,
           features = head(VariableFeatures(seurat_obj_filt), 30))
 ```
 
----
+------------------------------------------------------------------------
 
 #### **Reducción de dimensionalidad:**
 
-Este paso se realiza sobre los datos escalados y busca representar en un espacio de menos dimensiones la complejidad dimensional de los datos. 
+Este paso se realiza sobre los datos escalados y busca representar en un espacio de menos dimensiones la complejidad dimensional de los datos.
 
 ```{r}
 seurat_obj_filt<- RunPCA(seurat_obj_filt, 
@@ -300,20 +316,25 @@ VizDimLoadings(seurat_obj_filt, dims = 1:2, reduction = "pca")
 
 ```{r}
 # Vista del PCA
-DimPlot(seurat_obj_filt, reduction = "pca")# + NoLegend()
+DimPlot(seurat_obj_filt, reduction = "pca",
+        #group.by = "geo_sample_id")
+        group.by = "subgroup") 
+        #+ NoLegend()
 ```
+
 Un punto importante para la reduccion de dimensionalidad es saber cuantos PC considerar para el UMAP O T-SNE... entonces como sabes cuantos PC seleccionar?
 
 ```{r}
 # Como saber cuantos PC seleccionar?
-DimHeatmap(seurat_obj_filt, dims = 1, cells = 500, balanced = TRUE)
-DimHeatmap(seurat_obj_filt, dims = 1:5, cells = 500, balanced = TRUE)
+#DimHeatmap(seurat_obj_filt, dims = 1, cells = 500, balanced = TRUE)
+DimHeatmap(seurat_obj_filt, dims = 1:10, cells = 500, balanced = TRUE)
 ```
 
 ```{r}
 # Para determinar cuántos PC usar
 ElbowPlot(seurat_obj_filt, ndims = 50)  
 ```
+
 ```{r}
 # Varianza explicada
 # Visualiza la proporción de varianza explicada por cada componente principal
@@ -331,48 +352,131 @@ pc_90 <- which(cumsum(var_explained) >= 0.90)[1]
 pc_90
 ```
 
----
+------------------------------------------------------------------------
+
+#### **Correción por lote:**
+
+```{r}
+#install.packages("harmony")
+library(harmony)
+```
+
+------------------------------------------------------------------------
 
 #### **Clustering:**
 
-Con base en los PC definidos se establecen los clusters inferidos en los datos. El método esta basado en grafos, de tal forma que células con patrones de expresión similares en ss genes-nodos tienden a mantenerse cercanas formando cliques y comunidades densamente conectados. 
+Con base en los PC definidos se establecen los clusters inferidos en los datos. El método esta basado en grafos, de tal forma que células con patrones de expresión similares en ss genes-nodos tienden a mantenerse cercanas formando cliques y comunidades densamente conectados.
 
 ```{r}
 # Construye las redes de vecinos, considerando  el # de PC a retener
 seurat_obj_filt <- FindNeighbors(seurat_obj_filt, dims = 1:30)
+```
+
+```{r}
 # Determina el número de clusters
-seurat_obj_filt <- FindClusters(seurat_obj_filt, resolution = 0.5)
+seurat_obj_filt <- FindClusters(seurat_obj_filt, 
+                                resolution = c(0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0))
+
+```
+
+```{r}
+clustree(seurat_obj_filt)
 # Cluster IDs of the first 5 cells
-head(Idents(seurat_obj_filt), 5)
+#head(Idents(seurat_obj_filt), 5)
+```
+
+Una vez determinada la resolución que quweremos repetimos el análisis solo considerando la resolución de interés:
+
+```{r}
+# Determina el número de clusters
+seurat_obj_filt <- FindClusters(seurat_obj_filt, resolution = 1.2)
+clustree(seurat_obj_filt)
 ```
 
 ```{r}
 # Realizar la reducción de dimensiones con UMAP
 seurat_obj_filt <- RunUMAP(seurat_obj_filt, dims = 1:30)
+```
+```{r}
 # Visualizar los clusters en un gráfico UMAP
 DimPlot(seurat_obj_filt, reduction = "umap")#, group.by = "seurat_clusters")
 ```
+
+Graficando distintas variables en los UMAP:
+
+```{r}
+colnames(seurat_obj_filt@meta.data)
+```
+
+```{r}
+# Visualizar los clusters en un gráfico UMAP
+DimPlot(seurat_obj_filt, reduction = "umap", group.by = "subgroup")
+```
+```{r}
+# Visualizar los clusters en un gráfico UMAP
+DimPlot(seurat_obj_filt, reduction = "umap", group.by = "orig.ident")
+```
+```{r}
+# Visualizar los clusters en un gráfico UMAP
+DimPlot(seurat_obj_filt, reduction = "umap", group.by = "coarse_cell_type")
+```
+
+Visualizando marcadores en los subgrupos y en el espacio en general:
+
+```{r}
+FeaturePlot(seurat_obj_filt, features = c("CD3D", "CD8A", "CD4"),
+            reduction = "umap", split.by = "subgroup")
+```
+
+```{r}
+FeaturePlot(seurat_obj_filt, features = c("CD3D", "CD8A", "CD4"), 
+            reduction = "umap")
+```
+
 ```{r}
 # Realizar la reducción de dimensiones con t-SNE
 seurat_obj_filt <- RunTSNE(seurat_obj_filt, dims = 1:30)
 # Visualizar los clusters en un gráfico t-SNE
 DimPlot(seurat_obj_filt, reduction = "tsne")#, group.by = "seurat_clusters")
 ```
+
 ```{r}
 # Salvar resultado
 saveRDS(seurat_obj_filt, file = "sc_rnaseq_MB.rds")
 ```
 
----
+------------------------------------------------------------------------
 
 #### **Identificación de biomarcadores:**
 
-Aquí con base en los genes expresados diferencialmente se encuentran los marcadores que mejor definen cada uno de los clusters. 
+Aquí con base en los genes expresados diferencialmente se encuentran los marcadores que mejor definen cada uno de los clusters.
 
+Este bloque de código relaiza el análsiis de expresión diferencial indicado por Seurat de forma predeterminada pero es un **proceso muy lento para conjuntos de datos grandes. Como alternativa usaremos Presto para realizar el análisis con mayor velocidad.**
+---
 ```{r}
 # Encontrar marcadores para cada cluster comparando contra todas las céluas
 mb_markers <- FindAllMarkers(seurat_obj_filt, only.pos = TRUE)
 ```
+
+```{r}
+mb_markers %>%
+  group_by(cluster) %>%
+  dplyr::filter(avg_log2FC > 1)
+```
+---
+
+Usando [Presto](https://github.com/immunogenomics/presto):
+
+```{r}
+# Instalar el paquete:
+# install.packages("devtools")
+#devtools::install_github("immunogenomics/presto")
+library(presto)
+```
+```{r}
+mb_markers <- FindAllMarkers(seurat_obj_filt, only.pos = TRUE, test.use = "wilcox")
+```
+
 ```{r}
 mb_markers %>%
   group_by(cluster) %>%
@@ -383,18 +487,28 @@ Una vez realizado el análisis de expresión diferencial, podemos explorar la ex
 
 ```{r}
 # Visualizar los marcadores
-VlnPlot(seurat_obj_filt, features = c("KCNIP4", "RPH3A"))
+VlnPlot(seurat_obj_filt, features = c("CD3B", "CD4"))
 ```
 
 ```{r}
 # Plot raw counts
-VlnPlot(seurat_obj_filt, features = c("KCNIP4", "RPH3A"), 
+VlnPlot(seurat_obj_filt, features = c("CD3", "CD4"), 
         slot = "counts", log = TRUE)
 ```
 ```{r}
-# Vusaluzar en el UMAP/TSNE
-FeaturePlot(seurat_obj_filt, features = c("KCNIP4", "RPH3A"))
+VlnPlot(seurat_obj_filt, features = c("CD3", "CD4"), group.by = "coarse_cell_type", 
+        log = TRUE, pt.size = 0.5)
 ```
+```{r}
+VlnPlot(seurat_obj_filt, features = c("CD3", "CD4"), group.by = "subgroup", 
+        log = TRUE, pt.size = 0.5)
+```
+
+```{r}
+# Vusaluzar en el UMAP/TSNE
+FeaturePlot(seurat_obj_filt, features = c("CD3", "CD4"))
+```
+
 ```{r}
 # Heatmap
 mb_markers %>%
@@ -410,15 +524,24 @@ Asignacion de marcadores:
 
 ```{r}
 # Visualización sin leyenda
-DimPlot(seurat_obj_filt, reduction = "umap", 
+DimPlot(seurat_obj_filt, reduction = "umap",
+        #group.by = "subgroup",
+        #group.by = "coarse_cell_type",
+        #group.by = "tumor_subpopulation",
+        group.by = "geo_sample_id",
         label = TRUE, pt.size = 0.5) + NoLegend()
 ```
+
 ```{r}
 # Visualización con leyenda
 plot <- DimPlot(seurat_obj_filt, reduction = "umap", label = TRUE, 
-                label.size = 4.5) + xlab("UMAP 1") + ylab("UMAP 2") + 
+                label.size = 4.5, group.by = "geo_sample_id") + xlab("UMAP 1") + ylab("UMAP 2") +
   theme(axis.title = element_text(size = 18), legend.text = element_text(size = 10)) + guides(colour = guide_legend(override.aes = list(size = 5)))
 plot
+```
+
+```{r}
+sessionInfo()
 ```
 
 ```{r}
@@ -426,6 +549,4 @@ plot
 saveRDS(seurat_obj_filt, file = "mb_scrnaseq.R")
 ```
 
-```{r}
-sessionInfo()
-```
+
